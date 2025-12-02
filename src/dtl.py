@@ -25,36 +25,51 @@ class DecisionTreeModel:
         self.root = self._grow_tree(X, y)
 
     def _grow_tree(self, X, y, depth=0):
-        # TODO: Implementasi rekursif pembentukan tree
-        # 1. Cek stopping criteria (depth, purity, n_samples)
-        # 2. Cari best split (Information Gain / Gain Ratio / Gini Index)
-        # 3. Buat Node
-        pass
+        n_samples = X.shape[0]
+        n_classes = np.unique(y).size
+
+        if n_samples < self.min_samples_split or\
+           n_classes <= 1 or\
+           depth >= self.max_depth:
+            leaf_value = self._most_common_label(y)
+            return Node(value=leaf_value)
+
+        feat_idxs = np.array(range(X.shape[1]))
+        best_feature, best_threshold, left_idxs, right_idxs = self._best_split(X, y, feat_idxs)
+
+        if best_threshold is None:
+            leaf_value = self._most_common_label(y)
+            return Node(value=leaf_value)
+
+        left_child = self._grow_tree(X[left_idxs], y[left_idxs], depth + 1)
+        right_child = self._grow_tree(X[right_idxs], y[right_idxs], depth + 1)
+
+        return Node(feature=best_feature, threshold=best_threshold, left=left_child, right=right_child)
 
     def _best_split(self, X, y, feat_idxs):
         best_gain = -1
         best_feature = 0
         best_threshold = None
-        best_left_indices = None
-        best_right_indices = None
+        best_left_idxs = None
+        best_right_idxs = None
 
         for feature in feat_idxs:
             column = X[:, feature]
             sorted_unique_column = np.sort(np.unique(column))
             for value in sorted_unique_column:
-                left_indices = np.where(column <= value)[0]
-                right_indices = np.where(column > value)[0]
-                if left_indices.size == 0 or right_indices.size == 0:
+                left_idxs = np.where(column <= value)[0]
+                right_idxs = np.where(column > value)[0]
+                if left_idxs.size == 0 or right_idxs.size == 0:
                     continue
-                gain = self._information_gain(y, left_indices, right_indices)
+                gain = self._information_gain(y, left_idxs, right_idxs)
                 if gain > best_gain:
                     best_gain = gain
                     best_feature = feature
                     best_threshold = value
-                    best_left_indices = left_indices
-                    best_right_indices = right_indices
+                    best_left_idxs = left_idxs
+                    best_right_idxs = right_idxs
 
-        return (best_feature, best_threshold, best_left_indices, best_right_indices)
+        return (best_feature, best_threshold, best_left_idxs, best_right_idxs)
 
 
     def predict(self, X):
@@ -85,16 +100,20 @@ class DecisionTreeModel:
 
         return entropy * -1
 
-    def _information_gain(self, y, left_indices, right_indices):
+    def _information_gain(self, y, left_idxs, right_idxs):
         parent_size = y.size
-        left_y = y[left_indices]
-        right_y = y[right_indices]
+        left_y = y[left_idxs]
+        right_y = y[right_idxs]
 
         left_proportion = left_y.size / parent_size
         right_proportion = right_y.size / parent_size
 
         child_entropy = left_proportion * self._entropy(left_y) + right_proportion * self._entropy(right_y)
         return self._entropy(y) - child_entropy
+
+    def _most_common_label(self, y):
+        values, counts = np.unique(y, return_counts=True)
+        return values[np.argmax(counts)]
 
     @staticmethod
     def load_model(filename):
