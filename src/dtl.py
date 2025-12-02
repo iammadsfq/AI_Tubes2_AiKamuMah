@@ -64,6 +64,17 @@ class DecisionTreeModel:
 
         return entropy * -1
 
+    def _information_gain(self, y, left_indices, right_indices):
+        parent_size = y.size
+        left_y = y[left_indices]
+        right_y = y[right_indices]
+
+        left_proportion = left_y.size / parent_size
+        right_proportion = right_y.size / parent_size
+
+        child_entropy = left_proportion * self._entropy(left_y) + right_proportion * self._entropy(right_y)
+        return self._entropy(y) - child_entropy
+
     @staticmethod
     def load_model(filename):
         with open(filename, 'rb') as f:
