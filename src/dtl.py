@@ -31,10 +31,31 @@ class DecisionTreeModel:
         # 3. Buat Node
         pass
 
-    def _best_split(self, X, y, feat_idxs): # Gain
-        # TODO: Logic untuk mencari split terbaik
-        # Harus bisa handle Categorical DAN Numerical
-        pass
+    def _best_split(self, X, y, feat_idxs):
+        best_gain = -1
+        best_feature = 0
+        best_threshold = None
+        best_left_indices = None
+        best_right_indices = None
+
+        for feature in feat_idxs:
+            column = X[:, feature]
+            sorted_unique_column = np.sort(np.unique(column))
+            for value in sorted_unique_column:
+                left_indices = np.where(column <= value)[0]
+                right_indices = np.where(column > value)[0]
+                if left_indices.size == 0 or right_indices.size == 0:
+                    continue
+                gain = self._information_gain(y, left_indices, right_indices)
+                if gain > best_gain:
+                    best_gain = gain
+                    best_feature = feature
+                    best_threshold = value
+                    best_left_indices = left_indices
+                    best_right_indices = right_indices
+
+        return (best_feature, best_threshold, best_left_indices, best_right_indices)
+
 
     def predict(self, X):
         return np.array([self._traverse_tree(x, self.root) for x in X])
