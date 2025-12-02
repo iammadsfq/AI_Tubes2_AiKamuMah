@@ -129,21 +129,41 @@ class DecisionTreeModel:
             return
         self._print_recursive(self.root, depth=0)
 
-    def _print_recursive(self, node, depth):
-        # TODO: Logic Visualisasi Tree
-        return
+    def _print_recursive(self, node, depth=0, prefix=""):
+        if node.value is not None:
+            print(str(node.value) + " (Leaf)")
+        else:
+            print("[Feature " + str(node.feature) + " <= " + str(node.threshold) + "]")
+            new_prefix = prefix + "│   "
+            print(prefix + "├── " + "Left: ", end="")
+            self._print_recursive(node.left, depth + 1, new_prefix)
+            new_prefix = prefix + "    "
+            print(prefix + "└── " + "Right: ", end="")
+            self._print_recursive(node.right, depth + 1, new_prefix)
 
 def main():
     # Simple test
-    X = np.array([[1], [2], [3], [4], [5], [6], [7], [8]])
-    y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    X = np.array([
+    [2, 8, 60],
+    [5, 7, 70],
+    [6, 6, 70],
+    [8, 5, 75],
+    [3, 6, 55],
+    [5, 7, 68],
+    [7, 5, 80],
+    [1, 9, 50],
+    [9, 4, 85],
+    [2, 7, 58],
+])
+    y = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
 
     tree = DecisionTreeModel(max_depth=5)
     tree.fit(X, y)
-    predictions = tree.predict(X)
+    predictions = tree.predict(np.array([[6, 6, 72]]))
     print("Predictions:", predictions)
-    print("Actual:     ", y)
+    print("Actual:     ", ["Yes"])
     print("Accuracy:   ", np.mean(predictions == y))
+    tree.print_tree()
 
 if __name__ == "__main__":
     main()
