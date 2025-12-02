@@ -1,14 +1,16 @@
 import numpy as np
+import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import networkx as nx
 
 class Node:
-    def __init__(self, feature=None, threshold=None, left=None, right=None, value=None):
+    def __init__(self, feature=None, threshold=None, left=None, left_branch_majority=True, right=None, value=None):
         self.feature = feature          # Index fitur yang dijadikan split
         self.threshold = threshold      # Nilai threshold (untuk numerik)
         self.left = left                # Child kiri
+        self.left_branch_majority = left_branch_majority # True jika branch kiri memiliki lebih banyak sample
         self.right = right              # Child kanan
         self.value = value              # Class label (jika leaf node)
 
@@ -25,12 +27,21 @@ class DecisionTreeModel:
         X: numpy array features
         y: numpy array target
         """
-        # TODO: Handle Null Values sebelum building tree atau di dalam split
         if X.shape[0] == 0 or y.size == 0:
             raise ValueError("Cannot fit model with empty dataset. X and y must have at least one sample.")
 
         self.n_features = X.shape[1]
         self.root = self._grow_tree(X, y)
+
+    # Missing Value Handler
+    def _is_missing(self, value):
+        return pd.isna(value)
+
+    def _get_missing_mask(self, column):
+        if np.issubdtype(column.dtype, np.number):
+            return np.isnan(column)
+
+        return pd.isna(column)
 
     def _grow_tree(self, X, y, depth=0):
         n_samples = X.shape[0]
@@ -45,14 +56,18 @@ class DecisionTreeModel:
         feat_idxs = np.array(range(X.shape[1]))
         best_feature, best_threshold, left_idxs, right_idxs = self._best_split(X, y, feat_idxs)
 
-        if best_threshold is None:
+        if best_threshold is None or left_idxs is None or right_idxs is None:
             leaf_value = self._most_common_label(y)
             return Node(value=leaf_value)
+
+        left_idxs = np.asarray(left_idxs)
+        right_idxs = np.asarray(right_idxs)
 
         left_child = self._grow_tree(X[left_idxs], y[left_idxs], depth + 1)
         right_child = self._grow_tree(X[right_idxs], y[right_idxs], depth + 1)
 
-        return Node(feature=best_feature, threshold=best_threshold, left=left_child, right=right_child)
+        left_branch_majority = left_idxs.size >= right_idxs.size
+        return Node(feature=best_feature, threshold=best_threshold, left=left_child, left_branch_majority=left_branch_majority, right=right_child)
 
     def _best_split(self, X, y, feat_idxs):
         best_gain = -1
@@ -63,19 +78,44 @@ class DecisionTreeModel:
 
         for feature in feat_idxs:
             column = X[:, feature]
-            sorted_unique_column = np.sort(np.unique(column))
+
+            missing_mask = self._get_missing_mask(column)
+            known_idxs = np.where(~missing_mask)[0]
+            missing_idxs = np.where(missing_mask)[0]
+
+            if known_idxs.size == 0:
+                continue
+
+            known_column = column[known_idxs]
+            sorted_unique_column = np.sort(np.unique(known_column))
+
             for value in sorted_unique_column:
-                left_idxs = np.where(column <= value)[0]
-                right_idxs = np.where(column > value)[0]
+                left_known_mask = known_column <= value
+                right_known_mask = known_column > value
+
+                left_idxs = known_idxs[left_known_mask]
+                right_idxs = known_idxs[right_known_mask]
+
                 if left_idxs.size == 0 or right_idxs.size == 0:
                     continue
+
                 gain = self._information_gain(y, left_idxs, right_idxs)
+
                 if gain > best_gain:
                     best_gain = gain
                     best_feature = feature
                     best_threshold = value
-                    best_left_idxs = left_idxs
-                    best_right_idxs = right_idxs
+
+                    if missing_idxs.size > 0:
+                        if left_idxs.size >= right_idxs.size:
+                            best_left_idxs = np.concatenate([left_idxs, missing_idxs])
+                            best_right_idxs = right_idxs
+                        else:
+                            best_left_idxs = left_idxs
+                            best_right_idxs = np.concatenate([right_idxs, missing_idxs])
+                    else:
+                        best_left_idxs = left_idxs
+                        best_right_idxs = right_idxs
 
         return (best_feature, best_threshold, best_left_idxs, best_right_idxs)
 
@@ -96,7 +136,15 @@ class DecisionTreeModel:
         if node.value is not None:
             return node.value
 
-        if x[node.feature] <= node.threshold:
+        feature_value = x[node.feature]
+
+        if self._is_missing(feature_value):
+            if node.left_branch_majority:
+                return self._traverse_tree(x, node.left)
+            else:
+                return self._traverse_tree(x, node.right)
+
+        if feature_value <= node.threshold:
             return self._traverse_tree(x, node.left)
         else:
             return self._traverse_tree(x, node.right)
