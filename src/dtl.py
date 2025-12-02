@@ -1,5 +1,8 @@
 import numpy as np
 import pickle
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
+import networkx as nx
 
 class Node:
     def __init__(self, feature=None, threshold=None, left=None, right=None, value=None):
@@ -140,6 +143,73 @@ class DecisionTreeModel:
             new_prefix = prefix + "    "
             print(prefix + "└── " + "Right: ", end="")
             self._print_recursive(node.right, depth + 1, new_prefix)
+
+    def _add_edges(self, G, node, parent=None, label=""):
+        if node is None:
+            return
+
+        node_id = id(node)
+
+        if node.value is not None:
+            node_label = f"{node.value}\n(Leaf)"
+            G.add_node(node_id, label=node_label, leaf=True)
+        else:
+            node_label = f"{node.feature} <= {node.threshold}"
+            G.add_node(node_id, label=node_label, leaf=False)
+
+        if parent is not None:
+            G.add_edge(parent, node_id, label=label)
+
+        if node.left:
+            self._add_edges(G, node.left, node_id, "Yes")
+        if node.right:
+            self._add_edges(G, node.right, node_id, "No")
+
+    def _calculate_pos(self, G, root, leftmost, width, vert_gap, vert_loc, pos):
+        pos[root] = (leftmost + width / 2, vert_loc)
+        children = list(G.successors(root))
+        if len(children) != 0:
+            dx = width / len(children)
+            nextx = leftmost
+            for child in children:
+                pos = self._calculate_pos(G, child, nextx, dx, vert_gap, vert_loc - vert_gap, pos)
+                nextx += dx
+        return pos
+
+    def draw_tree(self):
+        if self.root is None:
+            return
+
+        G = nx.DiGraph()
+        self._add_edges(G, self.root)
+
+        labels = nx.get_node_attributes(G, 'label')
+        edge_labels = nx.get_edge_attributes(G, 'label')
+        leaf_nodes = [n for n, attr in G.nodes(data=True) if attr['leaf']]
+        internal_nodes = [n for n in G.nodes() if n not in leaf_nodes]
+
+        pos = self._calculate_pos(G, id(self.root), 0, 1., 0.2, 0, {})
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.set_axis_off()
+
+        for (u, v, d) in G.edges(data=True):
+            x1, y1 = pos[u]
+            x2, y2 = pos[v]
+            ax.plot([x1, x2], [y1, y2], 'k-', zorder=1)
+            # Edge label in the middle
+            xm, ym = (x1 + x2) / 2, ((y1 + y2) / 2) + 0.03
+            ax.text(xm, ym, d['label'], color='black', fontsize=9, ha='center', va='center')
+
+        for n in G.nodes():
+            x, y = pos[n]
+            node_label = labels[n]
+            leaf = n in leaf_nodes
+            bbox_props = dict(boxstyle="round,pad=0.3", fc="lightgreen" if leaf else "lightblue", ec="black", lw=1)
+            ax.text(x, y, node_label, ha='center', va='center', fontsize=10, bbox=bbox_props, zorder=2)
+
+        plt.tight_layout()
+        plt.show()
 
 def main():
     # Simple test
