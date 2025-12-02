@@ -79,8 +79,10 @@ class DecisionTreeModel:
         if node.value is not None:
             return node.value
 
-        # TODO: Logic traversal (cek threshold/kategori)
-        pass
+        if x[node.feature] <= node.threshold:
+            return self._traverse_tree(x, node.left)
+        else:
+            return self._traverse_tree(x, node.right)
 
     def save_model(self, filename):
         with open(filename, 'wb') as f:
@@ -131,19 +133,17 @@ class DecisionTreeModel:
         # TODO: Logic Visualisasi Tree
         return
 
-# def entropy(y):
-#     unique_value = np.unique_counts(y)
-#     entropy = 0
-#     size = y.size
-#     for count in unique_value.counts:
-#         proportion = count / size
-#         entropy += proportion * np.log2(proportion)
+def main():
+    # Simple test
+    X = np.array([[1], [2], [3], [4], [5], [6], [7], [8]])
+    y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
 
-#     return entropy * -1
+    tree = DecisionTreeModel(max_depth=5)
+    tree.fit(X, y)
+    predictions = tree.predict(X)
+    print("Predictions:", predictions)
+    print("Actual:     ", y)
+    print("Accuracy:   ", np.mean(predictions == y))
 
-# def main():
-#     y = np.array([0, 0, 0, 1])
-#     print(entropy(y))
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
