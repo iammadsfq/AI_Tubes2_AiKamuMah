@@ -18,6 +18,7 @@ class DecisionTreeModel:
         self.max_depth = max_depth
         self.algorithm = algorithm # 'id3', 'c4.5', atau 'cart'
         self.root = None
+        self.n_features = None
 
     def fit(self, X, y):
         """
@@ -25,6 +26,10 @@ class DecisionTreeModel:
         y: numpy array target
         """
         # TODO: Handle Null Values sebelum building tree atau di dalam split
+        if X.shape[0] == 0 or y.size == 0:
+            raise ValueError("Cannot fit model with empty dataset. X and y must have at least one sample.")
+
+        self.n_features = X.shape[1]
         self.root = self._grow_tree(X, y)
 
     def _grow_tree(self, X, y, depth=0):
@@ -76,6 +81,15 @@ class DecisionTreeModel:
 
 
     def predict(self, X):
+        if self.root is None:
+            raise ValueError("Model has not been fitted yet. Call fit() before predict().")
+
+        if X.shape[0] == 0:
+            return np.array([])
+
+        if X.shape[1] != self.n_features:
+            raise ValueError(f"Feature dimension mismatch. Model was trained with {self.n_features} features, but input has {X.shape[1]} features.")
+
         return np.array([self._traverse_tree(x, self.root) for x in X])
 
     def _traverse_tree(self, x, node):
@@ -212,7 +226,7 @@ class DecisionTreeModel:
 
 def main():
     # Simple test
-    X = np.array([
+    X1 = np.array([
     [2, 8, 60],
     [5, 7, 70],
     [6, 6, 70],
@@ -224,14 +238,15 @@ def main():
     [9, 4, 85],
     [2, 7, 58],
 ])
-    y = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
+    y1 = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
+    X = np.array([])
+    y = np.array([])
 
     tree = DecisionTreeModel(max_depth=5)
     tree.fit(X, y)
-    predictions = tree.predict(np.array([[6, 6, 72]]))
+    predictions = tree.predict(np.array([[4]]))
     print("Predictions:", predictions)
     print("Actual:     ", ["Yes"])
-    print("Accuracy:   ", np.mean(predictions == y))
     tree.print_tree()
 
 if __name__ == "__main__":
