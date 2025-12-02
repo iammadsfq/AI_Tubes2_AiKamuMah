@@ -21,7 +21,7 @@ class DecisionTreeModel:
         X: numpy array features
         y: numpy array target
         """
-        # TODO: Handle Null Values sebelum building tree atau di dalam split 
+        # TODO: Handle Null Values sebelum building tree atau di dalam split
         self.root = self._grow_tree(X, y)
 
     def _grow_tree(self, X, y, depth=0):
@@ -33,7 +33,7 @@ class DecisionTreeModel:
 
     def _best_split(self, X, y, feat_idxs): # Gain
         # TODO: Logic untuk mencari split terbaik
-        # Harus bisa handle Categorical DAN Numerical 
+        # Harus bisa handle Categorical DAN Numerical
         pass
 
     def predict(self, X):
@@ -42,7 +42,7 @@ class DecisionTreeModel:
     def _traverse_tree(self, x, node):
         if node.value is not None:
             return node.value
-        
+
         # TODO: Logic traversal (cek threshold/kategori)
         pass
 
@@ -50,18 +50,46 @@ class DecisionTreeModel:
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
+    # Algorithm specific helper
+    def _entropy(self, y):
+        unique_value = np.unique_counts(y)
+        entropy = 0
+        size = y.size
+        for count in unique_value.counts:
+            proportion = count / size
+            entropy += proportion * np.log2(proportion)
+
+        return entropy * -1
+
     @staticmethod
     def load_model(filename):
         with open(filename, 'rb') as f:
             return pickle.load(f)
-        
+
     # Bonus Visualisasi
     def print_tree(self):
         if not self.root:
             print("Tree belum dilatih!")
             return
         self._print_recursive(self.root, depth=0)
-    
+
     def _print_recursive(self, node, depth):
         # TODO: Logic Visualisasi Tree
         return
+
+# def entropy(y):
+#     unique_value = np.unique_counts(y)
+#     entropy = 0
+#     size = y.size
+#     for count in unique_value.counts:
+#         proportion = count / size
+#         entropy += proportion * np.log2(proportion)
+
+#     return entropy * -1
+
+# def main():
+#     y = np.array([0, 0, 0, 1])
+#     print(entropy(y))
+
+# if __name__ == "__main__":
+#     main()
