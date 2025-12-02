@@ -52,9 +52,12 @@ class DecisionTreeModel:
 
     # Algorithm specific helper
     def _entropy(self, y):
+        size = y.size
+        if size == 0:
+            return 0.0
+
         unique_value = np.unique_counts(y)
         entropy = 0
-        size = y.size
         for count in unique_value.counts:
             proportion = count / size
             entropy += proportion * np.log2(proportion)
