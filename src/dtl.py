@@ -138,10 +138,10 @@ class DecisionTreeModel:
         else:
             print("[Feature " + str(node.feature) + " <= " + str(node.threshold) + "]")
             new_prefix = prefix + "│   "
-            print(prefix + "├── " + "Left: ", end="")
+            print(prefix + "├── " + "Yes: ", end="")
             self._print_recursive(node.left, depth + 1, new_prefix)
             new_prefix = prefix + "    "
-            print(prefix + "└── " + "Right: ", end="")
+            print(prefix + "└── " + "No: ", end="")
             self._print_recursive(node.right, depth + 1, new_prefix)
 
     def _add_edges(self, G, node, parent=None, label=""):
@@ -197,7 +197,6 @@ class DecisionTreeModel:
             x1, y1 = pos[u]
             x2, y2 = pos[v]
             ax.plot([x1, x2], [y1, y2], 'k-', zorder=1)
-            # Edge label in the middle
             xm, ym = (x1 + x2) / 2, ((y1 + y2) / 2) + 0.03
             ax.text(xm, ym, d['label'], color='black', fontsize=9, ha='center', va='center')
 
