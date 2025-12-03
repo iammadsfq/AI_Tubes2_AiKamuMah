@@ -19,10 +19,12 @@ class LogisticRegressionModel:
         self.history_params = []
 
     def _sigmoid(self, x: FloatArray) -> FloatArray:
-        return 1 / (1 + np.exp(-x))
+        return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x)/ (1 + np.exp(x)))
     
     def _softmax(self, z: FloatArray) -> FloatArray:
-        return np.exp(z) / np.sum(np.exp(z), axis = 1, keepdims = True)
+        z_shifted = z - np.max(z, axis=1, keepdims=True)
+        exp_z = np.exp(z_shifted)
+        return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
     def fit(self, X: FloatArray, y: FloatArray):
         if hasattr(X, "to_numpy"):
