@@ -26,6 +26,10 @@ class LogisticRegressionModel:
         pass
 
     def fit(self, X: FloatArray, y: FloatArray):
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+        if hasattr(y, "to_numpy"):
+            y = y.to_numpy()
         rng = np.random.default_rng(self.random_state)
 
         n_samples, n_features = X.shape
@@ -41,6 +45,7 @@ class LogisticRegressionModel:
     
     def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int, rng: np.random.Generator) -> None:
         for class_idx, class_label in enumerate(self.classes):
+            print(f"Fitting OvR Class Index: {class_idx}")
             y_classes = np.where(y == class_label, 1.0, 0.0)
             for _ in range(self.epochs):
                 indices = rng.permutation(n_samples)
