@@ -7,10 +7,11 @@ FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int_]
 
 class LogisticRegressionModel:
-    def __init__(self, learning_rate: float = 0.01, n_iters: int = 1000, multi_class: Literal['ovr', 'multinomial'] = 'ovr'):
+    def __init__(self, learning_rate: float = 0.01, n_iters: int = 1000, multi_class: Literal['ovr', 'multinomial'] = 'ovr', random_state: Optional[int]= None):
         self.lr: float = learning_rate
         self.epochs: int = n_iters
         self.multi_class: Literal['ovr', 'multinomial'] = multi_class
+        self.random_state: Optional[int] = random_state
         self.weights: Optional[FloatArray] = None
         self.bias = None
         self.classes = None
@@ -25,6 +26,8 @@ class LogisticRegressionModel:
         pass
 
     def fit(self, X: FloatArray, y: FloatArray):
+        rng = np.random.default_rng(self.random_state)
+
         n_samples, n_features = X.shape
         self.classes = np.unique(y)
         n_classes = len(self.classes)
@@ -32,15 +35,15 @@ class LogisticRegressionModel:
         self.bias = np.zeros(n_classes)
 
         if self.multi_class == 'ovr':
-            self._fit_ovr(X, y, n_samples)
+            self._fit_ovr(X, y, n_samples, rng)
         else:
             self._fit_softmax(X, y, n_samples, n_features, n_classes)
     
-    def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int) -> None:
+    def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int, rng: np.random.Generator) -> None:
         for class_idx, class_label in enumerate(self.classes):
             y_classes = np.where(y == class_label, 1.0, 0.0)
             for _ in range(self.epochs):
-                indices = np.random.permutation(n_samples)
+                indices = rng.permutation(n_samples)
                 for i in indices:
                     xi = X[i]
                     yi = y_classes[i]
