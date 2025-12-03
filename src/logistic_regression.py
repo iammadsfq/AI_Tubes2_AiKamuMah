@@ -64,8 +64,13 @@ class LogisticRegressionModel:
         pass
 
     def predict(self, X: FloatArray):
-        # TODO: Implementasi prediksi multikelas
-        pass
+        # TODO: Bikin predict untuk softmax regression
+        z = np.dot(X, self.weights) + self.bias
+
+        sigmoid_probability = self._sigmoid(z)
+
+        class_indices = np.argmax(sigmoid_probability, axis=1)
+        return self.classes[class_indices]
 
     def save_model(self, filename):
         with open(filename, 'wb') as f:
