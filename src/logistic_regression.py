@@ -32,13 +32,32 @@ class LogisticRegressionModel:
         self.bias = np.zeros(n_classes)
 
         if self.multi_class == 'ovr':
-            self._fit_ovr(X, y, n_samples, n_features, n_classes)
+            self._fit_ovr(X, y, n_samples)
         else:
             self._fit_softmax(X, y, n_samples, n_features, n_classes)
     
-    def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int, n_features: int, n_classes: int) -> None:
-        # TODO: Implementasi One-vs-Rest LogisticRegression Model
-        pass
+    def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int) -> None:
+        for class_idx, class_label in enumerate(self.classes):
+            y_classes = np.where(y == class_label, 1.0, 0.0)
+            for _ in range(self.epochs):
+                indices = np.random.permutation(n_samples)
+                for i in indices:
+                    xi = X[i]
+                    yi = y_classes[i]
+
+                    wi = self.weights[:, class_idx]
+                    bi = self.bias[class_idx]
+
+                    z = np.dot(xi, wi) + bi
+
+                    pi = float(self._sigmoid(z))
+
+                    error = yi - pi
+
+                    self.weights[:, class_idx] += (self.lr * error * xi)
+                    self.bias[class_idx] += (self.lr * error)
+
+
 
     def _fit_softmax(self, X: FloatArray, y: FloatArray, n_samples: int, n_features: int, n_classes: int) -> None:
         # TODO: Implementasi Softmax Regression
