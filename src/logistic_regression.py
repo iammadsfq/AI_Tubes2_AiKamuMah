@@ -21,9 +21,8 @@ class LogisticRegressionModel:
     def _sigmoid(self, x: FloatArray) -> FloatArray:
         return 1 / (1 + np.exp(-x))
     
-    def _softmax(self, x: FloatArray) -> FloatArray:
-        # TODO: Implementasi fungsi softmax
-        pass
+    def _softmax(self, z: FloatArray) -> FloatArray:
+        return np.exp(z) / np.sum(np.exp(z), axis = 1, keepdims = True)
 
     def fit(self, X: FloatArray, y: FloatArray):
         if hasattr(X, "to_numpy"):
@@ -41,7 +40,7 @@ class LogisticRegressionModel:
         if self.multi_class == 'ovr':
             self._fit_ovr(X, y, n_samples, rng)
         else:
-            self._fit_softmax(X, y, n_samples, n_features, n_classes)
+            self._fit_softmax(X, y, n_samples, n_classes, rng)
     
     def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int, rng: np.random.Generator) -> None:
         for class_idx, class_label in enumerate(self.classes):
@@ -65,20 +64,40 @@ class LogisticRegressionModel:
                     self.weights[:, class_idx] += (self.lr * error * xi)
                     self.bias[class_idx] += (self.lr * error)
 
+    def _fit_softmax(self, X: FloatArray, y: FloatArray, n_samples: int, n_classes: int, rng: np.random.Generator) -> None:
+        Y_onehot = np.zeros((n_samples, n_classes))
+        for idx, class_label in enumerate(self.classes):
+            Y_onehot[:, idx] = (y == class_label).astype(float)
 
+        for _ in range(self.epochs):
+            indices = rng.permutation(n_samples)
 
-    def _fit_softmax(self, X: FloatArray, y: FloatArray, n_samples: int, n_features: int, n_classes: int) -> None:
-        # TODO: Implementasi Softmax Regression
-        pass
+            for i in indices:
+                xi = X[i]
+                yi = Y_onehot[i]
+
+                z = np.dot(xi, self.weights) + self.bias
+                pi = self._softmax(z.reshape(1, -1))[0]    
+
+                error = yi - pi
+
+                self.weights += self.lr * np.outer(xi, error)
+                self.bias    += self.lr * error
+
 
     def predict(self, X: FloatArray):
-        # TODO: Bikin predict untuk softmax regression
         z = np.dot(X, self.weights) + self.bias
 
-        sigmoid_probability = self._sigmoid(z)
+        if self.multi_class == 'ovr':    
+            sigmoid_probability = self._sigmoid(z)
 
-        class_indices = np.argmax(sigmoid_probability, axis=1)
-        return self.classes[class_indices]
+            class_indices = np.argmax(sigmoid_probability, axis=1)
+            return self.classes[class_indices]
+        else: # Multinomial
+            softmax_probability = self._softmax(z)
+            
+            class_indices = np.argmax(softmax_probability, axis=1)
+            return self.classes[class_indices]
 
     def save_model(self, filename):
         with open(filename, 'wb') as f:
