@@ -105,6 +105,7 @@ class LogisticRegressionModel:
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
+    @staticmethod
     def load_model(filename):
         with open(filename, 'rb') as f:
             return pickle.load(f)
