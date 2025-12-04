@@ -126,7 +126,29 @@ class SVM_Binary:
 
 
 def main():
-    print()
+    # Ini buat ngetes aja
+    X = np.array([[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [10, 10], [
+                 6, 1], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [11, 11]])
+    y = np.array([-1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1])
+
+    print("one vs all")
+    model1 = SVMModel()
+    model1.fit(X, y)
+    preds1 = model1.predict(X)
+    print(preds1)
+
+    print("one vs one")
+    model2 = SVMModel(mode='one-vs-one')
+    model2.fit(X, y)
+    preds2 = model2.predict(X)
+    print(preds2)
+
+    print("dagsvm")
+    model3 = SVMModel(mode='dagsvm')
+    model3.classes = np.unique(y)
+    model3.fit(X, y)
+    preds3 = model3.predict(X)
+    print(preds3)
 
 
 if __name__ == "__main__":
