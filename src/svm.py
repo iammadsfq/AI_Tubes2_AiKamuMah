@@ -1,10 +1,11 @@
 import numpy as np
 import pickle
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 
-class SVMModel():
+class SVMModel(BaseEstimator, ClassifierMixin):
     def __init__(self, learning_rate=0.001, lambda_param=0.01, n_iters=1000, mode='one-vs-all'):
-        self.lr = learning_rate
+        self.learning_rate = learning_rate
         self.lambda_param = lambda_param
         self.n_iters = n_iters
         self.mode = mode  # 'one-vs-all'
@@ -23,6 +24,14 @@ class SVMModel():
         return (X - self.mean) / self.std
 
     def fit(self, X, y):
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+        if hasattr(y, "to_numpy"):
+            y = y.to_numpy()
+
+        if len(y.shape) > 1:
+            y = y.ravel()
+        
         self.compute_scaler(X)
         X = self.transform(X)
 
