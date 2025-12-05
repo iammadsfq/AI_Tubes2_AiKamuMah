@@ -120,7 +120,13 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
                 if left_idxs.size == 0 or right_idxs.size == 0:
                     continue
 
-                gain = self._information_gain(y, left_idxs, right_idxs)
+                gain = 0
+                if self.algorithm == 'id3':
+                    gain = self._information_gain(y, left_idxs, right_idxs)
+                elif self.algorithm == 'c4.5':
+                    gain = self._gain_ratio(y, left_idxs, right_idxs)
+                elif self.algorithm == 'cart':
+                    gain = self._gini_gain(y, left_idxs, right_idxs)
 
                 if gain > best_gain:
                     best_gain = gain
@@ -208,6 +214,53 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
 
         child_entropy = left_proportion * self._entropy(left_y) + right_proportion * self._entropy(right_y)
         return self._entropy(y) - child_entropy
+
+    def _split_information(self, left_idxs, right_idxs):
+        left_size = left_idxs.size
+        right_size = right_idxs.size
+
+        if left_size == 0 or right_size == 0:
+            return 0.0
+
+        total_size = left_size + right_size
+        left_proportion = left_size / total_size
+        right_proportion = right_size / total_size
+
+        return -((left_proportion) * np.log2(left_proportion) + (right_proportion) * np.log2(right_proportion))
+
+    def _gain_ratio(self, y, left_idxs, right_idxs):
+        info_gain = self._information_gain(y, left_idxs, right_idxs)
+        split_info = self._split_information(left_idxs, right_idxs)
+
+        if split_info == 0:
+            return 0
+
+        return info_gain / split_info
+
+    def _gini(self, y):
+        size = y.size
+        if size == 0:
+            return 0.0
+
+        _, counts = np.unique(y, return_counts=True)
+        gini = 0
+        for count in counts:
+            proportion = count / size
+            gini += proportion * proportion
+
+        return 1 - gini
+
+    def _gini_gain(self, y, left_idxs, right_idxs):
+        parent_size = y.size
+        left_y = y[left_idxs]
+        right_y = y[right_idxs]
+
+        left_proportion = left_y.size / parent_size
+        right_proportion = right_y.size / parent_size
+
+        child_gini = left_proportion * self._gini(left_y) + right_proportion * self._gini(right_y)
+        return self._gini(y) - child_gini
+
 
     def _most_common_label(self, y):
         values, counts = np.unique(y, return_counts=True)
