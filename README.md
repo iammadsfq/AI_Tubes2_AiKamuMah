@@ -1,5 +1,5 @@
 # AI_Tubes2_AiKamuMah
-Repository ini dibuat untuk memenuhi Tugas Besar 2 Mata Kuliah Inteligensi Artifisial IF3170 2025/2026
+Repository ini dibuat untuk memenuhi Tugas Besar 2 Mata Kuliah Inteligensi Artifisial IF3170 2025/2026. Pada Tugas Besar 2 ini, mahasiswa ditugaskan untuk membuat model Decision Tree Learning, Logistic Regression, dan Support Vector Machine untuk memprediksi  apakah seorang siswa lulus/dropout berdasarkan data performa mahasiswa selama 2 semester pertama
 
 ### Setup and Run
 
@@ -45,3 +45,10 @@ AI_Tubes2_AiKamuMah/
 └── requirements.txt        # List library (numpy, pandas, scikit-learn, matplotlib)
 ```
 ### Pembagian Tugas
+| Name                          | Contribution                        |
+|-------------------------------|-------------------------------------|
+| Andi Farhan Hidayat           | Model Optimization & Comparison     |
+| Ahmad Syafiq                  | Data Preprocessing & Cleaning       |
+| Andri Nurdianto               | SVM                                 |
+| Rafael Marchel Darma Wijaya   | DTL                                 |
+| Muhammad Kinan Arkansyaddad   | Logistic Regression                 |
