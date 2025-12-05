@@ -40,7 +40,7 @@ class SVMModel(BaseEstimator, ClassifierMixin):
         if self.mode == 'one-vs-all':
             for c in classes:
                 y_binary = np.where(y == c, 1, -1)
-                model = SVM_Binary(self.lr, self.lambda_param, self.n_iters)
+                model = SVM_Binary(self.learning_rate, self.lambda_param, self.n_iters)
                 model.fit(X, y_binary)
                 self.models.append((c, model))
 
@@ -66,7 +66,7 @@ class SVMModel(BaseEstimator, ClassifierMixin):
 
 class SVM_Binary:
     def __init__(self, learning_rate, lambda_param, n_iters):
-        self.lr = learning_rate
+        self.learning_rate = learning_rate
         self.lambda_param = lambda_param
         self.n_iters = n_iters
         self.w = None
@@ -94,8 +94,8 @@ class SVM_Binary:
             grad_w = 2 * self.lambda_param * self.w + (1 / n_samples) * loss_dw
             grad_b = (1 / n_samples) * loss_db
 
-            self.w -= self.lr * grad_w
-            self.b -= self.lr * grad_b
+            self.w -= self.learning_rate * grad_w
+            self.b -= self.learning_rate * grad_b
 
     def decision_function(self, X):
         return np.dot(X, self.w) + self.b
