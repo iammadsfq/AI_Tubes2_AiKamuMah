@@ -8,10 +8,12 @@ FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int_]
 
 class LogisticRegressionModel(BaseEstimator, ClassifierMixin):
-    def __init__(self, learning_rate: float = 0.01, n_iters: int = 1000, multi_class: Literal['ovr', 'multinomial'] = 'ovr', random_state: Optional[int]= None):
+    def __init__(self, learning_rate: float = 0.01, n_iters: int = 1000, multi_class: Literal['ovr', 'multinomial'] = 'ovr', penalty: Optional[Literal['l1', 'l2']] = None, alpha: float = 0.0001, random_state: Optional[int]= None):
         self.learning_rate = learning_rate
         self.n_iters = n_iters
         self.multi_class = multi_class
+        self.penalty = penalty
+        self.alpha = alpha
         self.random_state = random_state
         self.weights: Optional[FloatArray] = None
         self.bias = None
@@ -26,6 +28,20 @@ class LogisticRegressionModel(BaseEstimator, ClassifierMixin):
         z_shifted = z - np.max(z, axis=1, keepdims=True)
         exp_z = np.exp(z_shifted)
         return exp_z / np.sum(exp_z, axis=1, keepdims=True)
+    
+    def _get_reg_loss(self, w: FloatArray) -> float:
+        if self.penalty == 'l1':
+            return self.alpha * np.sum(np.abs(w))
+        elif self.penalty == 'l2':
+            return 0.5 * self.alpha * np.sum(w ** 2)
+        return 0.0
+
+    def _apply_reg_update(self, w: FloatArray) -> FloatArray:
+        if self.penalty == 'l1':
+            return self.alpha * np.sign(w)
+        elif self.penalty == 'l2':
+            return self.alpha * w
+        return np.zeros_like(w)
 
     def fit(self, X: FloatArray, y: FloatArray):
         if hasattr(X, "to_numpy"):
@@ -68,7 +84,10 @@ class LogisticRegressionModel(BaseEstimator, ClassifierMixin):
 
                     error = yi - pi
 
-                    self.weights[:, class_idx] += (self.learning_rate * error * xi)
+                    grad = error * xi
+                    reg_penalty = self._apply_reg_update(wi)
+                    
+                    self.weights[:, class_idx] += (self.learning_rate * grad) - (self.learning_rate * reg_penalty)
                     self.bias[class_idx] += (self.learning_rate * error)
 
     def _fit_softmax(self, X: FloatArray, y: FloatArray, n_samples: int, n_classes: int, rng: np.random.Generator) -> None:
@@ -87,8 +106,11 @@ class LogisticRegressionModel(BaseEstimator, ClassifierMixin):
                 pi = self._softmax(z.reshape(1, -1))[0]    
 
                 error = yi - pi
+                
+                grad = np.outer(xi, error)
+                reg_penalty = self._apply_reg_update(self.weights)
 
-                self.weights += self.learning_rate * np.outer(xi, error)
+                self.weights += (self.learning_rate * grad) - (self.learning_rate * reg_penalty)
                 self.bias    += self.learning_rate * error
 
 
