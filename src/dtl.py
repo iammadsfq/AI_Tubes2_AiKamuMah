@@ -17,10 +17,11 @@ class Node:
         self.value = value              # Class label (jika leaf node)
 
 class DecisionTreeModel(BaseEstimator, ClassifierMixin):
-    def __init__(self, min_samples_split=2, max_depth=100, algorithm='id3'):
+    def __init__(self, min_samples_split=2, max_depth=100, algorithm='id3', ccp_alpha=0.0):
         self.min_samples_split = min_samples_split
         self.max_depth = max_depth
         self.algorithm = algorithm # 'id3', 'c4.5', atau 'cart'
+        self.ccp_alpha = ccp_alpha
         self.root = None
         self.n_features = None
 
@@ -42,6 +43,10 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
 
         self.n_features = X.shape[1]
         self.root = self._grow_tree(X, y)
+
+        if self.ccp_alpha > 0:
+            self._ccp_prune(X, y)
+
         return self
 
     # Missing Value Handler
@@ -266,6 +271,111 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
         values, counts = np.unique(y, return_counts=True)
         return values[np.argmax(counts)]
 
+
+    # Pruning Optimization
+    def _count_leaves(self, node):
+        if node.value is not None:
+            return 1
+
+        return self._count_leaves(node.left) + self._count_leaves(node.right)
+
+
+    def _subtree_error(self, node, X, y):
+        y_pred = np.array([self._traverse_tree(x, node) for x in X])
+        wrong = 0
+        for i in range(y.size):
+            if y[i] != y_pred[i]:
+                wrong += 1
+
+        return wrong / y.size
+
+
+    def _leaf_error(self, y):
+        common_class = self._most_common_label(y)
+        wrong = 0
+        for val in y:
+            if val != common_class:
+                wrong += 1
+
+        return wrong / y.size
+
+
+    def _effective_alpha(self, node, X, y):
+        if node.value is not None:
+            return float('inf')
+
+        leaf_err = self._leaf_error(y)
+        subtree_err = self._subtree_error(node, X, y)
+        n_leaves = self._count_leaves(node)
+
+        if n_leaves <= 1:
+            return float('inf')
+
+        return (leaf_err - subtree_err) / (n_leaves - 1)
+
+
+    def _find_weakest_link(self, node, X, y):
+        if node.value is not None:
+            return (float('inf'), None, None, None)
+
+        current_alpha = self._effective_alpha(node, X, y)
+        min_alpha = current_alpha
+        weakest_node = node
+        weakest_X = X
+        weakest_y = y
+
+        column = X[:, node.feature]
+        if node.is_categorical:
+            left_mask = column == node.threshold
+        else:
+            left_mask = column <= node.threshold
+
+        missing_mask = self._get_missing_mask(column)
+        if node.left_branch_majority:
+            left_mask = left_mask | missing_mask
+
+        right_mask = ~left_mask
+
+        X_left, y_left = X[left_mask], y[left_mask]
+        X_right, y_right = X[right_mask], y[right_mask]
+
+        left_alpha, left_node, left_X, left_y = self._find_weakest_link(node.left, X_left, y_left)
+        if left_alpha < min_alpha:
+            min_alpha = left_alpha
+            weakest_node = left_node
+            weakest_X = left_X
+            weakest_y = left_y
+
+        right_alpha, right_node, right_X, right_y = self._find_weakest_link(node.right, X_right, y_right)
+        if right_alpha < min_alpha:
+            min_alpha = right_alpha
+            weakest_node = right_node
+            weakest_X = right_X
+            weakest_y = right_y
+
+        return (min_alpha, weakest_node, weakest_X, weakest_y)
+
+    def _prune_node(self, node, y):
+        node.value = self._most_common_label(y)
+        node.left = None
+        node.right = None
+        node.feature = None
+        node.threshold = None
+
+    def _ccp_prune(self, X, y):
+        while True:
+            min_alpha, weakest_node, weakest_X, weakest_y = self._find_weakest_link(self.root, X, y)
+
+            if weakest_node is None or \
+               min_alpha > self.ccp_alpha:
+                break
+
+            if weakest_node is self.root:
+                self._prune_node(self.root, y)
+                break
+
+            self._prune_node(weakest_node, weakest_y)
+
     @staticmethod
     def load_model(filename):
         with open(filename, 'rb') as f:
@@ -363,27 +473,7 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
         plt.show()
 
 def main():
-    # Simple test
-    X1 = np.array([
-    [2, 8, 60],
-    [5, 7, 70],
-    [6, 6, 70],
-    [8, 5, 75],
-    [3, 6, 55],
-    [5, 7, 68],
-    [7, 5, 80],
-    [1, 9, 50],
-    [9, 4, 85],
-    [2, 7, 58],
-    ])
-    y1 = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
-
-    tree = DecisionTreeModel(max_depth=5)
-    tree.fit(X1, y1)
-    predictions = tree.predict(np.array([[4]]))
-    print("Predictions:", predictions)
-    print("Actual:     ", ["Yes"])
-    tree.print_tree()
+    pass
 
 if __name__ == "__main__":
     main()
