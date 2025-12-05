@@ -4,6 +4,7 @@ import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import networkx as nx
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 class Node:
     def __init__(self, feature=None, threshold=None, left=None, left_branch_majority=True, right=None, value=None):
@@ -14,7 +15,7 @@ class Node:
         self.right = right              # Child kanan
         self.value = value              # Class label (jika leaf node)
 
-class DecisionTreeModel:
+class DecisionTreeModel(BaseEstimator, ClassifierMixin):
     def __init__(self, min_samples_split=2, max_depth=100, algorithm='id3'):
         self.min_samples_split = min_samples_split
         self.max_depth = max_depth
@@ -27,11 +28,20 @@ class DecisionTreeModel:
         X: numpy array features
         y: numpy array target
         """
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+        if hasattr(y, "to_numpy"):
+            y = y.to_numpy()
+    
+        if len(y.shape) > 1:
+            y = y.ravel()
+            
         if X.shape[0] == 0 or y.size == 0:
             raise ValueError("Cannot fit model with empty dataset. X and y must have at least one sample.")
 
         self.n_features = X.shape[1]
         self.root = self._grow_tree(X, y)
+        return self
 
     # Missing Value Handler
     def _is_missing(self, value):
@@ -40,19 +50,19 @@ class DecisionTreeModel:
     def _get_missing_mask(self, column):
         if np.issubdtype(column.dtype, np.number):
             return np.isnan(column)
-
         return pd.isna(column)
 
     def _grow_tree(self, X, y, depth=0):
         n_samples = X.shape[0]
         n_classes = np.unique(y).size
 
-        if n_samples < self.min_samples_split or\
-           n_classes <= 1 or\
-           depth >= self.max_depth:
+        depth_limit_reached = (self.max_depth is not None and depth >= self.max_depth)
+        
+        if n_samples < self.min_samples_split or \
+           n_classes <= 1 or \
+           depth_limit_reached:
             leaf_value = self._most_common_label(y)
             return Node(value=leaf_value)
-
         feat_idxs = np.array(range(X.shape[1]))
         best_feature, best_threshold, left_idxs, right_idxs = self._best_split(X, y, feat_idxs)
 
@@ -123,6 +133,9 @@ class DecisionTreeModel:
     def predict(self, X):
         if self.root is None:
             raise ValueError("Model has not been fitted yet. Call fit() before predict().")
+        
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
 
         if X.shape[0] == 0:
             return np.array([])
@@ -159,9 +172,9 @@ class DecisionTreeModel:
         if size == 0:
             return 0.0
 
-        unique_value = np.unique_counts(y)
+        _, counts = np.unique(y, return_counts=True)
         entropy = 0
-        for count in unique_value.counts:
+        for count in counts:
             proportion = count / size
             entropy += proportion * np.log2(proportion)
 
@@ -285,10 +298,8 @@ def main():
     [1, 9, 50],
     [9, 4, 85],
     [2, 7, 58],
-])
+    ])
     y1 = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
-    X = np.array([])
-    y = np.array([])
 
     tree = DecisionTreeModel(max_depth=5)
     tree.fit(X, y)
