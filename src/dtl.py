@@ -7,7 +7,8 @@ import networkx as nx
 from sklearn.base import BaseEstimator, ClassifierMixin
 
 class Node:
-    def __init__(self, feature=None, threshold=None, left=None, left_branch_majority=True, right=None, value=None):
+    def __init__(self, is_categorical=False, feature=None, threshold=None, left=None, left_branch_majority=True, right=None, value=None):
+        self.is_categorical = is_categorical # True jika membandingkan kategori
         self.feature = feature          # Index fitur yang dijadikan split
         self.threshold = threshold      # Nilai threshold (untuk numerik)
         self.left = left                # Child kiri
@@ -32,10 +33,10 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
             X = X.to_numpy()
         if hasattr(y, "to_numpy"):
             y = y.to_numpy()
-    
+
         if len(y.shape) > 1:
             y = y.ravel()
-            
+
         if X.shape[0] == 0 or y.size == 0:
             raise ValueError("Cannot fit model with empty dataset. X and y must have at least one sample.")
 
@@ -52,19 +53,23 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
             return np.isnan(column)
         return pd.isna(column)
 
+    # Categorical helper
+    def _is_categorical_feature(self, column):
+        return not np.issubdtype(column.dtype, np.number)
+
     def _grow_tree(self, X, y, depth=0):
         n_samples = X.shape[0]
         n_classes = np.unique(y).size
 
         depth_limit_reached = (self.max_depth is not None and depth >= self.max_depth)
-        
+
         if n_samples < self.min_samples_split or \
            n_classes <= 1 or \
            depth_limit_reached:
             leaf_value = self._most_common_label(y)
             return Node(value=leaf_value)
         feat_idxs = np.array(range(X.shape[1]))
-        best_feature, best_threshold, left_idxs, right_idxs = self._best_split(X, y, feat_idxs)
+        best_feature, best_threshold, left_idxs, right_idxs, is_categorical = self._best_split(X, y, feat_idxs)
 
         if best_threshold is None or left_idxs is None or right_idxs is None:
             leaf_value = self._most_common_label(y)
@@ -77,7 +82,7 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
         right_child = self._grow_tree(X[right_idxs], y[right_idxs], depth + 1)
 
         left_branch_majority = left_idxs.size >= right_idxs.size
-        return Node(feature=best_feature, threshold=best_threshold, left=left_child, left_branch_majority=left_branch_majority, right=right_child)
+        return Node(is_categorical=is_categorical, feature=best_feature, threshold=best_threshold, left=left_child, left_branch_majority=left_branch_majority, right=right_child)
 
     def _best_split(self, X, y, feat_idxs):
         best_gain = -1
@@ -85,9 +90,11 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
         best_threshold = None
         best_left_idxs = None
         best_right_idxs = None
+        best_is_categorical = False
 
         for feature in feat_idxs:
             column = X[:, feature]
+            is_categorical = self._is_categorical_feature(column)
 
             missing_mask = self._get_missing_mask(column)
             known_idxs = np.where(~missing_mask)[0]
@@ -100,8 +107,12 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
             sorted_unique_column = np.sort(np.unique(known_column))
 
             for value in sorted_unique_column:
-                left_known_mask = known_column <= value
-                right_known_mask = known_column > value
+                if is_categorical:
+                    left_known_mask = known_column == value
+                    right_known_mask = known_column != value
+                else:
+                    left_known_mask = known_column <= value
+                    right_known_mask = known_column > value
 
                 left_idxs = known_idxs[left_known_mask]
                 right_idxs = known_idxs[right_known_mask]
@@ -115,6 +126,7 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
                     best_gain = gain
                     best_feature = feature
                     best_threshold = value
+                    best_is_categorical = is_categorical
 
                     if missing_idxs.size > 0:
                         if left_idxs.size >= right_idxs.size:
@@ -127,13 +139,13 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
                         best_left_idxs = left_idxs
                         best_right_idxs = right_idxs
 
-        return (best_feature, best_threshold, best_left_idxs, best_right_idxs)
+        return (best_feature, best_threshold, best_left_idxs, best_right_idxs, best_is_categorical)
 
 
     def predict(self, X):
         if self.root is None:
             raise ValueError("Model has not been fitted yet. Call fit() before predict().")
-        
+
         if hasattr(X, "to_numpy"):
             X = X.to_numpy()
 
@@ -157,10 +169,16 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
             else:
                 return self._traverse_tree(x, node.right)
 
-        if feature_value <= node.threshold:
-            return self._traverse_tree(x, node.left)
+        if node.is_categorical:
+            if feature_value == node.threshold:
+                return self._traverse_tree(x, node.left)
+            else:
+                return self._traverse_tree(x, node.right)
         else:
-            return self._traverse_tree(x, node.right)
+            if feature_value <= node.threshold:
+                return self._traverse_tree(x, node.left)
+            else:
+                return self._traverse_tree(x, node.right)
 
     def save_model(self, filename):
         with open(filename, 'wb') as f:
@@ -211,7 +229,10 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
         if node.value is not None:
             print(str(node.value) + " (Leaf)")
         else:
-            print("[Feature " + str(node.feature) + " <= " + str(node.threshold) + "]")
+            if node.is_categorical:
+                print("[Feature " + str(node.feature) + " == " + str(node.threshold) + "]")
+            else:
+                print("[Feature " + str(node.feature) + " <= " + str(node.threshold) + "]")
             new_prefix = prefix + "│   "
             print(prefix + "├── " + "Yes: ", end="")
             self._print_recursive(node.left, depth + 1, new_prefix)
@@ -229,7 +250,10 @@ class DecisionTreeModel(BaseEstimator, ClassifierMixin):
             node_label = f"{node.value}\n(Leaf)"
             G.add_node(node_id, label=node_label, leaf=True)
         else:
-            node_label = f"{node.feature} <= {node.threshold}"
+            if node.is_categorical:
+                node_label = f"{node.feature} == {node.threshold}"
+            else:
+                node_label = f"{node.feature} <= {node.threshold}"
             G.add_node(node_id, label=node_label, leaf=False)
 
         if parent is not None:
@@ -302,7 +326,7 @@ def main():
     y1 = np.array(["Fail", "Fail", "Pass", "Pass", "Fail", "Pass", "Pass", "Fail", "Pass", "Fail"])
 
     tree = DecisionTreeModel(max_depth=5)
-    tree.fit(X, y)
+    tree.fit(X1, y1)
     predictions = tree.predict(np.array([[4]]))
     print("Predictions:", predictions)
     print("Actual:     ", ["Yes"])
