@@ -2,16 +2,17 @@ import numpy as np
 import numpy.typing as npt
 import pickle
 from typing import Literal, Optional
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int_]
 
-class LogisticRegressionModel:
+class LogisticRegressionModel(BaseEstimator, ClassifierMixin):
     def __init__(self, learning_rate: float = 0.01, n_iters: int = 1000, multi_class: Literal['ovr', 'multinomial'] = 'ovr', random_state: Optional[int]= None):
-        self.lr: float = learning_rate
-        self.epochs: int = n_iters
-        self.multi_class: Literal['ovr', 'multinomial'] = multi_class
-        self.random_state: Optional[int] = random_state
+        self.learning_rate = learning_rate
+        self.n_iters = n_iters
+        self.multi_class = multi_class
+        self.random_state = random_state
         self.weights: Optional[FloatArray] = None
         self.bias = None
         self.classes = None
@@ -31,6 +32,8 @@ class LogisticRegressionModel:
             X = X.to_numpy()
         if hasattr(y, "to_numpy"):
             y = y.to_numpy()
+        if len(y.shape) > 1:
+            y = y.ravel()
         rng = np.random.default_rng(self.random_state)
 
         n_samples, n_features = X.shape
@@ -43,12 +46,14 @@ class LogisticRegressionModel:
             self._fit_ovr(X, y, n_samples, rng)
         else:
             self._fit_softmax(X, y, n_samples, n_classes, rng)
+        
+        return self
     
     def _fit_ovr(self, X: FloatArray, y: FloatArray, n_samples: int, rng: np.random.Generator) -> None:
         for class_idx, class_label in enumerate(self.classes):
-            print(f"Fitting OvR Class Index: {class_idx}")
+            # print(f"Fitting OvR Class Index: {class_idx}")
             y_classes = np.where(y == class_label, 1.0, 0.0)
-            for _ in range(self.epochs):
+            for _ in range(self.n_iters):
                 indices = rng.permutation(n_samples)
                 for i in indices:
                     xi = X[i]
@@ -63,15 +68,15 @@ class LogisticRegressionModel:
 
                     error = yi - pi
 
-                    self.weights[:, class_idx] += (self.lr * error * xi)
-                    self.bias[class_idx] += (self.lr * error)
+                    self.weights[:, class_idx] += (self.learning_rate * error * xi)
+                    self.bias[class_idx] += (self.learning_rate * error)
 
     def _fit_softmax(self, X: FloatArray, y: FloatArray, n_samples: int, n_classes: int, rng: np.random.Generator) -> None:
         Y_onehot = np.zeros((n_samples, n_classes))
         for idx, class_label in enumerate(self.classes):
             Y_onehot[:, idx] = (y == class_label).astype(float)
 
-        for _ in range(self.epochs):
+        for _ in range(self.n_iters):
             indices = rng.permutation(n_samples)
 
             for i in indices:
@@ -83,21 +88,22 @@ class LogisticRegressionModel:
 
                 error = yi - pi
 
-                self.weights += self.lr * np.outer(xi, error)
-                self.bias    += self.lr * error
+                self.weights += self.learning_rate * np.outer(xi, error)
+                self.bias    += self.learning_rate * error
 
 
     def predict(self, X: FloatArray):
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+            
         z = np.dot(X, self.weights) + self.bias
 
         if self.multi_class == 'ovr':    
             sigmoid_probability = self._sigmoid(z)
-
             class_indices = np.argmax(sigmoid_probability, axis=1)
             return self.classes[class_indices]
         else: # Multinomial
             softmax_probability = self._softmax(z)
-            
             class_indices = np.argmax(softmax_probability, axis=1)
             return self.classes[class_indices]
 
